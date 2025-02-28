@@ -200,7 +200,7 @@ def factory_sdv14_based_criterion(device, num_noise, epsilon_reg, time_frac, tok
         del noisy_latents, timestep, gauss_noise, text_emb, input_ids, images
         # torch.cuda.empty_cache()
 
-        sub_batch_size = 64  # Maximal batch size in vae.decoder on a single A100 GPU
+        sub_batch_size = 4  # Maximal batch size in vae.decoder on a single A100 GPU
         if noise_pred.size(0) <= sub_batch_size:  # inference regularly
             decoded_noise = vae.decode(noise_pred, return_dict=False)[0]
             decoded_spherical_noise = vae.decode(spherical_noise, return_dict=False)[0]
@@ -297,8 +297,8 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    image_path_1 = "/home/azureuser/media/datasetstorage1/visiondatasets/Generated_datasets/Ojha_et_al_datasets/backup2/CNN_synth_testset/cyclegan/horse/1_fake/n02391049_10980_fake.png"  # "example_images/frog.png"
-    image_path_2 = "/home/azureuser/media/datasetstorage1/visiondatasets/Generated_datasets/Ojha_et_al_datasets/diffusion_datasets/laion/0_real/000377477.jpg"  # "./example_images/real_dog.png"  
+    image_path_1 = "example_images/real_car.jpg"  # "example_images/gen_frog.png"  # "example_images/real_car.jpg"
+    image_path_2 = "example_images/gen_okapi.png"  # "example_images/real_dog.png"   # "example_images/gen_okapi.png"
     siz = 512
     image_type = 0
     dataset_type = 'sanity'  # 'train' or 'test' usualy
