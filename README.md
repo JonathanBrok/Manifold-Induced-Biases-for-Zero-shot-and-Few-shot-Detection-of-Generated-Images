@@ -56,13 +56,7 @@ for idx, (cur_dict, cur_path) in enumerate(zip(res_dict_list, image_paths)):
 ```
 
 ## Output
-The script returns a dictionary with the following keys for each image:
-- **criterion**: The computed detection score.
-- **bias**: Measures the alignment between bias in noise prediction, and .
-- **kappa**: Quantifies the curvature in the probability manifold.
-- **D**: Gradient magnitude of the score function.
-
-A lower `criterion` score suggests that the image is more likely to be real, while a higher score indicates a generated image.
+For each input image, the script returns a dictionary with the 3-term criterion described in the paper. A lower `criterion` score suggests that the image is more likely to be real, while a higher score indicates a generated image.
 
 ## Example Run
 ```bash
