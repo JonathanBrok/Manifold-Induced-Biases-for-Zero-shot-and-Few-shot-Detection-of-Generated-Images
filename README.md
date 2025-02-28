@@ -16,7 +16,7 @@ This implementation is built using PyTorch and Hugging Face's `diffusers` and `t
 pip install torch torchvision diffusers transformers numpy imageio
 ```
 
-## Usage
+## Script flow
 
 ### 1. Load the Model and Utilities
 ```python
