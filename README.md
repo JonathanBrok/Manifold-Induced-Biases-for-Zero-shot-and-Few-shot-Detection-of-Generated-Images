@@ -10,14 +10,11 @@ This is the official implementation of Brokman et. al, ICLR 2025, featuring the 
 ## Requirements
 This implementation is built using PyTorch and Hugging Face's `diffusers` and `transformers`. Ensure you have the required dependencies installed before running the code.
 
-### Install Dependencies
-
-# 1. Using Conda (Recommended)
+## Install Dependencies
+```bash
 conda env create -f environment.yml
 conda activate manifold_bias
-
-# 2. Installing Dependencies Manually
-pip install torch torchvision diffusers transformers numpy imageio
+```
 
 ## Script flow
 
