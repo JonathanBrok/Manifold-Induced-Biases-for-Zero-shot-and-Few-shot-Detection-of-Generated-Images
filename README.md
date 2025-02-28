@@ -1,20 +1,23 @@
 # Manifold Induced Biases for Zero-shot and Few-shot detection of Generated Images
 
 ## Overview
-This is the official implementation of the Manifold Bias Criteria, presented in Brokman et. al, ICLR 2025. These are zero-shot criteria for detecting AI-generated images.
+This is the official implementation of Brokman et. al, ICLR 2025, featuring the zero-shot criteria for detecting AI-generated images, introduced in the paper.
 
 ## Features
-- **Zero-shot detection**: No need for labeled generated images.
-- **Theoretically grounded**:  Based on the mathematical analysis of biases within pre-trained diffusion models
-- **Out-performs existing zero-shot methods** in generalization across multiple generative techniques.
+- **Theoretically grounded**:  Based on the mathematical analysis of pre-trained diffusion models and their generative process's biases
+- **Zero-shot detection**: No need for (labeled) data nor training.
 
 ## Requirements
 This implementation is built using PyTorch and Hugging Face's `diffusers` and `transformers`. Ensure you have the required dependencies installed before running the code.
 
 ### Install Dependencies
-```bash
+
+# 1. Using Conda (Recommended)
+conda env create -f environment.yml
+conda activate manifold_bias
+
+# 2. Installing Dependencies Manually
 pip install torch torchvision diffusers transformers numpy imageio
-```
 
 ## Script flow
 
