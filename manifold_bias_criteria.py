@@ -126,8 +126,10 @@ def normalize_batch(batch, epsilon=1e-8):
     norms = torch.norm(batch, p=2, dim=dims_to_normalize, keepdim=True)  # calculate the L2 norm per-element-in-batch 
     return  batch / (norms + epsilon)
 
-def factory_sdv14_based_criterion(device, num_noise, epsilon_reg, time_frac, tokenizer, text_encoder, image_to_text, vae, scheduler, unet, clip, processor, cos, siz, prompts_list=None):
-
+def factory_sdv14_based_criterion(device, num_noise, epsilon_reg, time_frac, tokenizer, text_encoder, image_to_text, vae, scheduler, unet, clip, processor, cos, siz, prompts_list=None, return_terms=False):
+    """
+    Factory function to enable images-to-criteria interface. Useful when benchmarking alongside other methods which employ the same interfae.
+    """
     def sdv14_based_criterion(images_raw):
         num_images = len(images_raw)
         
@@ -150,19 +152,12 @@ def factory_sdv14_based_criterion(device, num_noise, epsilon_reg, time_frac, tok
             ]
 
         # Get text embeddings hidden state
-        if True: # Option A: # Repeat the prompts
-            expanded_prompts = []
-            for prompt in prompts:
-                expanded_prompts.extend([prompt] * num_noise)
-            text_tokens = tokenizer(expanded_prompts, padding="max_length", max_length=77, truncation=True, return_tensors="pt")
-            input_ids = text_tokens.input_ids.to(device)
-            text_emb = text_encoder(input_ids).last_hidden_state
-        else:  # Option B: # Repeat the embeddings
-            
-            text_tokens = tokenizer(prompts, padding="max_length", max_length=77, return_tensors="pt")
-            input_ids = text_tokens.input_ids.to(device)
-            text_emb = text_encoder(input_ids).last_hidden_state
-            text_emb = text_emb.repeat_interleave(num_noise, dim=0)
+        expanded_prompts = []
+        for prompt in prompts:
+            expanded_prompts.extend([prompt] * num_noise)
+        text_tokens = tokenizer(expanded_prompts, padding="max_length", max_length=77, truncation=True, return_tensors="pt")
+        input_ids = text_tokens.input_ids.to(device)
+        text_emb = text_encoder(input_ids).last_hidden_state
         
         # Step 2: Encode images to latent space
         with torch.no_grad():
@@ -184,8 +179,8 @@ def factory_sdv14_based_criterion(device, num_noise, epsilon_reg, time_frac, tok
         
         # print alpha_t and sqrt(d). For input image resized to 512 we have a 4 X 64 X 64 latent space, flattened to d = 16384
         alpha_t = scheduler.alphas_cumprod[timestep[0].item()]  # Extract alpha_t from the scheduler
-        print(f"timestep: {timestep[0].item()}, alpha_t: {alpha_t.item()}")
-        print(f"D (dimension of latent space): {torch.prod(torch.tensor(latents.shape[1:])).item()}, sqrt(D): {sqrt_d.item()}")
+        print(f"\ntimestep: {timestep[0].item()}, alpha_t: {alpha_t.item()}")
+        print(f"dimension of latent space: {torch.prod(torch.tensor(latents.shape[1:])).item()}")
 
         
         # Predict noise
@@ -200,7 +195,7 @@ def factory_sdv14_based_criterion(device, num_noise, epsilon_reg, time_frac, tok
         del noisy_latents, timestep, gauss_noise, text_emb, input_ids, images
         # torch.cuda.empty_cache()
 
-        sub_batch_size = 4  # Maximal batch size in vae.decoder on a single A100 GPU
+        sub_batch_size = 16  # Maximal batch size in vae.decoder on a single A100 GPU
         if noise_pred.size(0) <= sub_batch_size:  # inference regularly
             decoded_noise = vae.decode(noise_pred, return_dict=False)[0]
             decoded_spherical_noise = vae.decode(spherical_noise, return_dict=False)[0]
@@ -208,7 +203,7 @@ def factory_sdv14_based_criterion(device, num_noise, epsilon_reg, time_frac, tok
         else:  # split batch to avoid errors
             
             num_sub_batches = (noise_pred.size(0) + sub_batch_size - 1) // sub_batch_size  # Calculate the number of sub-batches
-            print(f'batch of {noise_pred.size(0)}, is split to {num_sub_batches} sub-batches of (max) {sub_batch_size}')
+            print(f'\nBefore SD decoder: batch of {noise_pred.size(0)} ({num_noise} spherical perturbations X {num_images} images), is split to {num_sub_batches} sub-batches of (max) {sub_batch_size}')
             
             decoded_noise_list = []
             decoded_spherical_noise_list = []
@@ -269,11 +264,13 @@ def factory_sdv14_based_criterion(device, num_noise, epsilon_reg, time_frac, tok
             
             cur_dict = {
                 "criterion": float(criterion),
-                "bias": float(bias_mean),
-                "kappa": float(kappa_mean),
-                "D": float(D_mean),
             }
             
+            # add the sub-terms if requested
+            if return_terms:
+                cur_dict["bias"] = float(bias_mean)
+                cur_dict["kappa"] = float(kappa_mean)
+                cur_dict["D"] = float(D_mean)
             ret_dicts.append(cur_dict)
 
         return ret_dicts
@@ -297,13 +294,15 @@ if __name__ == "__main__":
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    image_path_1 = "example_images/real_car.jpg"  # "example_images/gen_frog.png"  # "example_images/real_car.jpg"
-    image_path_2 = "example_images/gen_okapi.png"  # "example_images/real_dog.png"   # "example_images/gen_okapi.png"
+    image_path_real_1 = "example_images/real_car.jpg"
+    image_path_real_2 = "example_images/real_dog.png"
+    image_path_gen_1 = "example_images/gen_okapi.png"
+    image_path_gen_2 = "example_images/gen_frog.png"
     siz = 512
     image_type = 0
     dataset_type = 'sanity'  # 'train' or 'test' usualy
     dataset_name = 'my_collection'  # generative technique or source of real data usually
-    num_noise = 2  # maximal for single A100 and 2 images (totaling in  batch of 2*256=512). We have sub-batches for the vae.decoder, so the bottleneck is the unet
+    num_noise = 8
     time_frac = 0.01
     epsilon_reg = 1e-8
     
@@ -311,7 +310,7 @@ if __name__ == "__main__":
     unet, tokenizer, text_encoder, vae, scheduler, cos, clip, processor, image_to_text = load_sdv14_criterion_functionalities(device)
     
     # Example run
-    image_paths = [image_path_1, image_path_2]
+    image_paths = [image_path_real_1, image_path_real_2, image_path_gen_1, image_path_gen_2]
     sdv14_based_criterion = factory_sdv14_based_criterion(device, num_noise, epsilon_reg, time_frac, tokenizer, text_encoder, image_to_text, vae, scheduler, unet, clip, processor, cos, siz)
     
     # load images and convert to tensor (still [0,255] range etc..)
